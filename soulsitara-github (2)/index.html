@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SoulSitara Wellness - Work Order Management</title>
+  <link rel="icon" href="assets/logo.png" type="image/png" />
+  <link rel="stylesheet" href="css/style.css" />
+
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <!-- jsPDF + autotable -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+  <!-- ================= LOGIN SCREEN ================= -->
+  <div id="login-screen">
+    <div class="login-card">
+      <img src="assets/logo.png" alt="SoulSitara Group Logo" class="logo" />
+      <h1>SoulSitara Wellness</h1>
+      <p class="subtitle">Work Order &amp; Sample Request Management</p>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" required autocomplete="username" placeholder="you@company.com" />
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" required autocomplete="current-password" placeholder="••••••••" />
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="login-remember" />
+          <label for="login-remember">Remember my email</label>
+        </div>
+        <button type="submit" class="btn btn-primary" id="login-submit-btn">Sign In</button>
+        <div class="error-text" id="login-error"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MAIN APP ================= -->
+  <div id="app-screen" class="hidden">
+
+    <!-- SIDEBAR -->
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <img src="assets/logo.png" alt="Logo" />
+        <div>
+          <h2>SoulSitara</h2>
+          <span>Wellness ERP</span>
+        </div>
+      </div>
+
+      <a href="#" class="nav-link" data-view="dashboard">📊 Dashboard</a>
+      <a href="#" class="nav-link" data-view="work-orders">📋 Work Orders</a>
+      <a href="#" class="nav-link" data-view="sample-requests">🧪 Sample Requests</a>
+
+      <div class="sidebar-footer">
+        <div class="user-name" id="user-name-display">—</div>
+        <div class="user-role" id="user-role-display">—</div>
+        <button class="btn btn-secondary" id="logout-btn">Logout</button>
+      </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+      <div class="topbar">
+        <button id="menu-toggle">☰ Menu</button>
+        <strong>SoulSitara Wellness ERP</strong>
+      </div>
+
+      <!-- DASHBOARD VIEW -->
+      <section id="view-dashboard" class="view"></section>
+
+      <!-- WORK ORDERS LIST VIEW -->
+      <section id="view-work-orders" class="view hidden">
+        <div class="toolbar">
+          <h1 class="page-title">Work Orders</h1>
+          <button class="btn btn-primary" id="new-work-order-btn">+ New Work Order</button>
+        </div>
+        <div class="toolbar">
+          <div class="filters-row">
+            <input type="text" id="search-input" placeholder="Search by client name..." />
+            <select id="status-filter">
+              <option value="">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Formulation">Formulation</option>
+              <option value="Production">Production</option>
+              <option value="Packaging">Packaging</option>
+              <option value="Quality Check">Quality Check</option>
+              <option value="Ready">Ready</option>
+              <option value="Dispatched">Dispatched</option>
+              <option value="Delivered">Delivered</option>
+            </select>
+            <select id="sort-select">
+              <option value="due_date:asc">Due Date (Soonest)</option>
+              <option value="due_date:desc">Due Date (Latest)</option>
+              <option value="order_date:desc">Order Date (Newest)</option>
+              <option value="order_date:asc">Order Date (Oldest)</option>
+              <option value="grand_total:desc">Amount (High to Low)</option>
+              <option value="grand_total:asc">Amount (Low to High)</option>
+              <option value="client_name:asc">Client Name (A-Z)</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SAMPLE REQUESTS LIST VIEW -->
+      <section id="view-sample-requests" class="view hidden">
+        <div class="toolbar">
+          <h1 class="page-title">Sample Requests</h1>
+          <button class="btn btn-primary" id="new-sample-request-btn">+ New Sample Request</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ORDER / SAMPLE FORM VIEW -->
+      <section id="view-order-form" class="view hidden">
+        <h1 class="page-title">New Work Order</h1>
+
+        <form id="order-form">
+          <div class="form-card">
+            <div id="order-number-label">Order Number: <span id="order-number-display">Auto-generated on save</span></div>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="order-date-input">Order Date</label>
+                <input type="date" id="order-date-input" required />
+              </div>
+              <div class="form-group">
+                <label for="due-date-input">Due Date <span style="color:#c62828">*</span></label>
+                <input type="date" id="due-date-input" required />
+              </div>
+              <div class="form-group">
+                <label for="status-select-form">Production Status</label>
+                <select id="status-select-form"></select>
+              </div>
+
+              <div class="form-group">
+                <label for="client-name-input">Client Name <span style="color:#c62828">*</span></label>
+                <input type="text" id="client-name-input" required placeholder="Client / Company Name" />
+              </div>
+              <div class="form-group">
+                <label for="contact-person-input">Contact Person</label>
+                <input type="text" id="contact-person-input" placeholder="Contact person name" />
+              </div>
+              <div class="form-group">
+                <label for="mobile-number-input">Mobile Number</label>
+                <input type="tel" id="mobile-number-input" placeholder="10-digit mobile number" />
+              </div>
+
+              <div class="form-group">
+                <label for="email-input">Email</label>
+                <input type="email" id="email-input" placeholder="client@example.com" />
+              </div>
+              <div class="form-group">
+                <label for="client-manager-select">Client Manager <span style="color:#c62828">*</span></label>
+                <select id="client-manager-select"></select>
+              </div>
+              <div class="form-group" id="other-manager-wrap" style="display:none;">
+                <label for="other-manager-input">Other Manager Name <span style="color:#c62828">*</span></label>
+                <input type="text" id="other-manager-input" placeholder="Enter manager name" />
+              </div>
+
+              <div class="form-group full-width">
+                <label for="address-input">Address</label>
+                <textarea id="address-input" rows="2" placeholder="Client address"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- PRODUCT ITEMS -->
+          <div class="form-card">
+            <h3 style="margin-top:0;color:var(--brand-dark);">Product Items</h3>
+            <div id="items-table-wrap">
+              <table id="items-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Item Name</th>
+                    <th>Pack Size</th>
+                    <th>Formulation Reference</th>
+                    <th>Packaging &amp; Container</th>
+                    <th>Label &amp; Packaging Details</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>GST</th>
+                    <th>Amount</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <button type="button" class="btn btn-secondary" id="add-item-btn">+ Add Item</button>
+
+            <!-- TOTALS -->
+            <div class="totals-panel">
+              <div class="totals-item">
+                <label>Subtotal</label>
+                <div class="value" id="totals-subtotal">₹0.00</div>
+              </div>
+              <div class="totals-item">
+                <label>Total GST</label>
+                <div class="value" id="totals-gst">₹0.00</div>
+              </div>
+              <div class="totals-item">
+                <label>Grand Total</label>
+                <div class="value grand" id="totals-grand">₹0.00</div>
+              </div>
+              <div class="totals-item">
+                <label for="advance-payment-input">Advance Payment</label>
+                <input type="number" id="advance-payment-input" min="0" step="0.01" value="0" />
+              </div>
+              <div class="totals-item">
+                <label>Balance Amount</label>
+                <div class="value" id="totals-balance">₹0.00</div>
+              </div>
+            </div>
+
+            <div id="form-error"></div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="save-order-btn">Save</button>
+              <button type="button" class="btn btn-secondary" id="cancel-form-btn">Cancel</button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ================= ORDER DETAIL MODAL ================= -->
+  <div id="order-detail-modal" class="modal-overlay">
+    <div class="modal-content">
+      <button class="modal-close" id="close-detail-modal">✕</button>
+      <div id="order-detail-body"></div>
+    </div>
+  </div>
+
+  <!-- App Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/orders.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/pdf.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
